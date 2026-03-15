@@ -1,0 +1,15 @@
+/bitrix/*
+!/bitrix/templates/
+/bitrix/templates/*
+!/bitrix/templates/vc-doctor/
+/upload/
+
+/TASK.html
+
+*.gif
+*.ico
+*.jpg
+*.jpeg
+*.png
+*.sql
+*.svg
