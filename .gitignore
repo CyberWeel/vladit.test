@@ -2,6 +2,7 @@
 !/bitrix/templates/
 /bitrix/templates/*
 !/bitrix/templates/vc-doctor/
+/bitrix/templates/vc-doctor/frontend/node_modules/
 /upload/
 
 /TASK.html

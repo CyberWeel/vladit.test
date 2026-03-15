@@ -56,9 +56,7 @@ module.exports = {
 				test: /\.(png|jpe?g|svg|gif)$/i,
 				loader: 'file-loader',
 				options: {
-					name: (fullPath) => {
-						return fullPath.replace(/.*src\/img/, 'img')
-					},
+					name: 'img/[name].[ext]',
 				},
 			},
 		],
