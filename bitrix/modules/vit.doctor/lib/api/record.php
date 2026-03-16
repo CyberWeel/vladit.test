@@ -52,8 +52,7 @@ class Record extends Controller
 		];
 	}
 
-	public function getScheduleAction($searchString = null, $specId = null, $servId = null, $depId = null, $docId = null, $date = null, $page = null)
-	{
+	public function getScheduleAction($searchString = null, $specId = null, $servId = null, $depId = null, $docId = null, $date = null, $page = null) {
 		$arSchedule['DOCTORS'] = [];
 		$arFilter = [];
 		$arDoctorIds = [];
@@ -77,7 +76,8 @@ class Record extends Controller
 
 		if ($servId) {
 			$arFilter['DOCTOR.SERVICE_SCHEDULE.ELEMENT.ID'] = $servId;
-		} else {
+		}
+		else {
 			$arFilter['!DOCTOR.SERVICE_SCHEDULE.ELEMENT.ID'] = null;
 		}
 
@@ -92,7 +92,8 @@ class Record extends Controller
 		if ($date && Date::isCorrect($date)) {
 			$arFilter['>=START_PERIOD'] = new DateTime($date.' 00:00:00');
 			$arFilter['<=END_PERIOD'] = new DateTime($date.' 23:59:59');
-		} else {
+		}
+		else {
 			$arFilter['>START_PERIOD'] = new DateTime();
 			$arFilter['<=END_PERIOD'] = (new DateTime())->add('2 months');
 		}
@@ -116,6 +117,7 @@ class Record extends Controller
 			$nav->setRecordCount(count($uniqueDoctorIds));
 
 			$arSchedule['NEXT_PAGE'] = null;
+
 			if ($nav->getCurrentPage() < $nav->getPageCount()) {
 				$arSchedule['NEXT_PAGE'] = ($nav->getCurrentPage() + 1);
 			}
@@ -128,6 +130,7 @@ class Record extends Controller
 			'filter' => $arFilter,
 			'order' => ['DOCTOR.NAME', 'ADDRESS.NAME', 'START_PERIOD'],
 		]);
+
 		foreach ($schedule->fetchCollection() as $period) {
 			if (!$arSchedule['DOCTORS'][$period->getDoctorId()]) {
 				$arSchedule['DOCTORS'][$period->getDoctorId()] = [];
@@ -168,6 +171,7 @@ class Record extends Controller
 			'select' => ['ID', 'NAME', 'DETAIL_PICTURE', 'MAIN_SERVICE.ELEMENT.ID', 'ONLINE_SERVICE.ELEMENT.ID', 'HOME_SERVICE.ELEMENT.ID', 'HOME_SERVICE.ELEMENT.NAME', 'HOME_SERVICE.ELEMENT.PRICE', 'HOME_SERVICE.ELEMENT.DURATION', 'SPECIALITY.ELEMENT.ID', 'SPECIALITY.ELEMENT.NAME', 'SERVICE_SCHEDULE.ELEMENT.ID', 'SERVICE_SCHEDULE.ELEMENT.NAME', 'SERVICE_SCHEDULE.ELEMENT.PRICE', 'SERVICE_SCHEDULE.ELEMENT.DURATION', 'SERVICE_SCHEDULE.ELEMENT.SPECIALITY.ELEMENT.ID', 'SERVICE_SCHEDULE.ELEMENT.SPECIALITY.ELEMENT.NAME'],
 			'filter' => ['ID' => $arDoctorIds],
 		]);
+
 		foreach ($doctors->fetchCollection() as $doctor) {
 			$arSchedule['DOCTORS'][$doctor->getId()] = array_merge([
 				'ID' => $doctor->getId(),
@@ -177,15 +181,17 @@ class Record extends Controller
 				'MAIN_SERVICE' => null,
 				'ONLINE_SERVICE' => null,
 				'HOME_SERVICE' => $doctor->getHomeService() ? [
-						'ID' => $doctor->getHomeService()->getElement()->getId(),
-						'NAME' => $doctor->getHomeService()->getElement()->getName(),
-						'PRICE' => Helper::priceFormat($doctor->getHomeService()->getElement()->getPrice()->getValue()),
-						'DURATION' => $doctor->getHomeService()->getElement()->getDuration()?->getValue()
-					] : null,
+					'ID' => $doctor->getHomeService()->getElement()->getId(),
+					'NAME' => $doctor->getHomeService()->getElement()->getName(),
+					'PRICE' => Helper::priceFormat($doctor->getHomeService()->getElement()->getPrice()->getValue()),
+					'DURATION' => $doctor->getHomeService()->getElement()->getDuration()?->getValue()
+				] : null,
 				'SERVICES' => []
 			], $arSchedule['DOCTORS'][$doctor->getId()]);
+
 			foreach ($doctor->getSpeciality()->getAll() as $s) {
 				$obSpec = $s->getElement();
+
 				if (!$arSchedule['DOCTORS'][$doctor->getId()]['SPECIALTIES'][$obSpec->getId()]) {
 					$arSchedule['DOCTORS'][$doctor->getId()]['SPECIALTIES'][$obSpec->getId()] = [
 						'ID' => $obSpec->getId(),
@@ -209,25 +215,30 @@ class Record extends Controller
 				
 				if ($doctor->getOnlineService()?->getElement()->getId() == $obServ->getId()) {
 					$arSchedule['DOCTORS'][$doctor->getId()]['ONLINE_SERVICE'] = $arServ;
-				} else {
+				}
+				else {
 					if ($obServ->getSpeciality()->getAll()) {
 						foreach ($obServ->getSpeciality()->getAll() as $spec) {
 							$obSpec = $spec->getElement();
+
 							if (!isset($arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][$obSpec->getId()])) {
 								$arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][$obSpec->getId()] = [
 									'ID' => $obSpec->getId(),
 									'NAME' => $obSpec->getName()
 								];
 							}
+
 							$arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][$obSpec->getId()]['ITEMS'][$arServ['ID']] = $arServ;
 						}
-					} else {
+					}
+					else {
 						if (!isset($arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][0])) {
 							$arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][0] = [
 								'ID' => 0,
 								'NAME' => Loc::getMessage('VD_OTHER_SERVICES')
 							];
 						}
+
 						$arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][0]['ITEMS'][$arServ['ID']] = $arServ;
 					}
 				}
@@ -236,9 +247,11 @@ class Record extends Controller
 					$arServiceIds[] = $arServ['ID'];
 				}
 			}
+
 			foreach ($arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'] as $specialtyId => $arSpecialty) {
 				$arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][$specialtyId]['ITEMS'] = array_values($arSpecialty['ITEMS']);
 			}
+
 			if (isset($arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][0])) {
 				$other = $arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][0];
 				unset($arSchedule['DOCTORS'][$doctor->getId()]['SERVICES'][0]);
@@ -253,17 +266,18 @@ class Record extends Controller
 
 		$arTicketFilter['=DOCTOR_ID'] = $arDoctorIds;
 		$arTicketFilter['=ADDRESS_ID'] = $arBranchIds;
-
 		$arTicketFilter['!STATUS_ID'] = Ticket::getStatusIdByCode('canceled');
-
 		$arTicketFilter['>START_VISIT'] = new DateTime();
+
 		if ($date && Date::isCorrect($date)) {
 			$arTicketFilter['>=START_VISIT'] = new DateTime($date.'00:00:00');
 			$arTicketFilter['<=END_VISIT'] = new DateTime($date.'23:59:59');
 		}
+
 		$tickets = TicketTable::getList([
 			'filter' => $arTicketFilter,
 		]);
+
 		while ($arTicket = $tickets->fetch()) {
 			if ($arSchedule['DOCTORS'][$arTicket['DOCTOR_ID']]['BRANCHES'][$arTicket['ADDRESS_ID']]['DAYS'][$arTicket['START_VISIT']->format('d.m.Y')]) {
 				$arSchedule['DOCTORS'][$arTicket['DOCTOR_ID']]['BRANCHES'][$arTicket['ADDRESS_ID']]['DAYS'][$arTicket['START_VISIT']->format('d.m.Y')]['TICKETS'][] = $arTicket;
