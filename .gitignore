@@ -1,8 +1,16 @@
 /bitrix/*
+
 !/bitrix/templates/
 /bitrix/templates/*
 !/bitrix/templates/vc-doctor/
 /bitrix/templates/vc-doctor/frontend/node_modules/
+
+!/bitrix/modules/
+/bitrix/modules/*
+!/bitrix/modules/vit.doctor/
+/bitrix/modules/vit.doctor/*
+!/bitrix/modules/vit.doctor/lib/
+
 /upload/
 
 /TASK.html
