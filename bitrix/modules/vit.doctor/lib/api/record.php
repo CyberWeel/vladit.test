@@ -53,6 +53,26 @@ class Record extends Controller
 	}
 
 	public function getScheduleAction($searchString = null, $specId = null, $servId = null, $depId = null, $docId = null, $date = null, $page = null) {
+		function parseScheduleRange(?string $range) {
+			$range = trim($range);
+
+			// Формат HH:MM - HH:MM
+			if (!preg_match('/^(\d{2}:\d{2})\s*-\s*(\d{2}:\d{2})$/', $range, $matches)) {
+				return false;
+			}
+
+			$start = $matches[1];
+			$end = $matches[2];
+			[$h1, $m1] = explode(':', $start);
+			[$h2, $m2] = explode(':', $end);
+
+			if ($h1 > 23 || $h2 > 23 || $m1 > 59 || $m2 > 59) {
+				return false;
+    	}
+
+    	return ['start' => $start, 'end' => $end];
+		}
+
 		$arSchedule['DOCTORS'] = [];
 		$arFilter = [];
 		$arDoctorIds = [];
@@ -131,6 +151,7 @@ class Record extends Controller
 			'order' => ['DOCTOR.NAME', 'ADDRESS.NAME', 'START_PERIOD'],
 		]);
 
+		/*
 		foreach ($schedule->fetchCollection() as $period) {
 			if (!$arSchedule['DOCTORS'][$period->getDoctorId()]) {
 				$arSchedule['DOCTORS'][$period->getDoctorId()] = [];
@@ -165,6 +186,84 @@ class Record extends Controller
 			if (!in_array($period->getAddressId(), $arBranchIds)) {
 				$arBranchIds[] = $period->getAddressId();
 			}
+		}
+		*/
+
+		$doctor_schedule_raw = \CIBlockElement::GetList(
+			['SORT' => 'ASC'],
+			['ID' => $arFilter['DOCTOR_ID'], 'IBLOCK_ID' => 17], // 17 - ID инфоблока "Врачи"
+			false,
+			false,
+			['PROPERTY_SCHEDULE_MONDAY', 'PROPERTY_SCHEDULE_TUESDAY', 'PROPERTY_SCHEDULE_WEDNESDAY', 'PROPERTY_SCHEDULE_THURSDAY', 'PROPERTY_SCHEDULE_FRIDAY', 'PROPERTY_SCHEDULE_SATURDAY', 'PROPERTY_SCHEDULE_SUNDAY', 'PROPERTY_ADDRESS']
+		)->GetNext();
+
+		$doctor_schedule_address = (int) $doctor_schedule_raw['PROPERTY_ADDRESS_VALUE'];
+		$doctor_schedule = [
+			'MONDAY' => parseScheduleRange($doctor_schedule_raw['PROPERTY_SCHEDULE_MONDAY_VALUE']),
+			'TUESDAY' => parseScheduleRange($doctor_schedule_raw['PROPERTY_SCHEDULE_TUESDAY_VALUE']),
+			'WEDNESDAY' => parseScheduleRange($doctor_schedule_raw['PROPERTY_SCHEDULE_WEDNESDAY_VALUE']),
+			'THURSDAY' => parseScheduleRange($doctor_schedule_raw['PROPERTY_SCHEDULE_THURSDAY_VALUE']),
+			'FRIDAY' => parseScheduleRange($doctor_schedule_raw['PROPERTY_SCHEDULE_FRIDAY_VALUE']),
+			'SATURDAY' => parseScheduleRange($doctor_schedule_raw['PROPERTY_SCHEDULE_SATURDAY_VALUE']),
+			'SUNDAY' => parseScheduleRange($doctor_schedule_raw['PROPERTY_SCHEDULE_SUNDAY_VALUE'])
+		];
+
+		$address_schedule_raw = \CIBlockElement::GetList(
+			['SORT' => 'ASC'],
+			['ID' => $doctor_schedule_address, 'IBLOCK_ID' => 15] // 15 - ID инфоблока "Адреса"
+		)->GetNext();
+
+		$address_schedule_name = $address_schedule_raw['NAME'];
+
+		$arSchedule['DOCTORS'][$arFilter['DOCTOR_ID'][0]] = [];
+		$arSchedule['DOCTORS'][$arFilter['DOCTOR_ID'][0]]['BRANCHES'] = [];
+		$arSchedule['DOCTORS'][$arFilter['DOCTOR_ID'][0]]['BRANCHES'][$doctor_schedule_address] = [
+			'ID' => $doctor_schedule_address,
+			'NAME' => $address_schedule_name,
+			'DAYS' => []
+		];
+
+		$arDoctorIds[] = $arFilter['DOCTOR_ID'];
+		$arBranchIds[] = $doctor_schedule_address;
+
+		$startTwoMonths = new \DateTime();
+		$endTwoMonths = (new \DateTime())->modify('+2 months');
+
+		while ($startTwoMonths <= $endTwoMonths) {
+			$dayOfWeek = strtoupper($startTwoMonths->format('l'));
+    	$dayString = $startTwoMonths->format('d.m.Y');
+
+    	if (!empty($doctor_schedule[$dayOfWeek])) {
+    	  $timeRange = $doctor_schedule[$dayOfWeek];
+
+				if (!isset($arSchedule['DOCTORS'][$arFilter['DOCTOR_ID'][0]]['BRANCHES'][$doctor_schedule_address]['DAYS'][$dayString])) {
+					$arSchedule['DOCTORS'][$arFilter['DOCTOR_ID'][0]]['BRANCHES'][$doctor_schedule_address]['DAYS'][$dayString]['DAY'] = [
+						'DATE_OBJECT' => new \Bitrix\Main\Type\Date($dayString),
+						'DATE_FORMATTED' => FormatDate('D, d M', (new \Bitrix\Main\Type\Date($dayString))->getTimestamp()),
+					];
+				}
+
+    	  $startDateTime = new \Bitrix\Main\Type\DateTime($dayString . ' ' . $timeRange['start']);
+    	  $endDateTime = new \Bitrix\Main\Type\DateTime($dayString . ' ' . $timeRange['end']);
+				$slotDuration = 20 * 60;
+				$startTimestamp = $startDateTime->getTimestamp();
+				$endTimestamp = $endDateTime->getTimestamp();
+
+				for ($time = $startTimestamp; $time + $slotDuration <= $endTimestamp; $time += $slotDuration) {
+					$slotStart = (new \DateTime())->setTimestamp($time);
+					$slotEnd = (new \DateTime())->setTimestamp($time + $slotDuration);
+					
+					$arSchedule['DOCTORS'][$arFilter['DOCTOR_ID'][0]]['BRANCHES'][$doctor_schedule_address]['DAYS'][$dayString]['PERIODS'][] = [
+						'START_PERIOD' => $slotStart,
+						'END_PERIOD' => $slotEnd,
+						'START_PERIOD_TIMESTAMP' => $slotStart->getTimestamp(),
+						'END_PERIOD_TIMESTAMP' => $slotEnd->getTimestamp(),
+						'DURATION' => $slotDuration
+					];
+				}
+    	}
+
+    	$startTwoMonths->modify('+1 day');
 		}
 
 		$doctors = ElementVddoctorsTable::getList([
